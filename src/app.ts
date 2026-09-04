@@ -7,9 +7,9 @@ import { FoodFeedPanel, createEmptyFoodCounts, FoodCounts } from './components/F
 import { PlayerControls } from './input/PlayerControls';
 import { GameEngine } from './engine/GameEngine';
 import { EliminationRules } from './engine/EliminationRules';
-import { FOODS, GRID_COLS, GRID_ROWS } from './config/gameParams';
-import { FoodType, TileDef } from './types';
+import { GRID_COLS, GRID_ROWS } from './config/gameParams';
 import { FeedPayload, GameMode, PeerGameClient } from './network/PeerGameClient';
+import { buildFeedDropQueue } from './utils/feedDrops';
 
 function requireElement(id: string): HTMLElement {
     const element = document.getElementById(id);
@@ -221,7 +221,7 @@ class App {
             }));
 
             for (const chain of chains) {
-                for (const [type, count] of Object.entries(chain.foodCounts) as [FoodType, number][]) {
+                for (const [type, count] of Object.entries(chain.foodCounts) as [keyof typeof this.foodCounts, number][]) {
                     this.foodCounts[type] += count;
                 }
                 for (const cell of [...chain.foods, ...chain.animals]) {
@@ -291,10 +291,10 @@ class App {
 
         const summary = distribution.join(', ');
         this.playerPanel2.update(`Received: ${summary}`);
-        this.applyIncomingFeedToBoard(payload, distribution);
+        void this.applyIncomingFeedToBoard(payload, distribution);
     }
 
-    private applyIncomingFeedToBoard(payload: FeedPayload, distribution: number[]): void {
+    private async applyIncomingFeedToBoard(payload: FeedPayload, distribution: number[]): Promise<void> {
         const remaining = {
             bone: payload.bone,
             bamboo: payload.bamboo,
@@ -302,32 +302,23 @@ class App {
             carrot: payload.carrot,
             cheese: payload.cheese,
         };
-        const order: FoodType[] = ['bone', 'bamboo', 'banana', 'carrot', 'cheese'];
 
-        const drops: Array<{ col: number; row: number; tile: TileDef }> = [];
+        const queue = buildFeedDropQueue(this.engine.grid, remaining, distribution);
+        const pending: Promise<void>[] = [];
 
-        for (let col = 0; col < 6; col++) {
-            const count = distribution[col] ?? 0;
-            for (let i = 0; i < count; i++) {
-                const type = order.find((foodType) => remaining[foodType] > 0) ?? 'bone';
-                remaining[type] -= 1;
-
-                let row = 0;
-                while (row < GRID_ROWS && this.engine.grid[row][col] !== null) {
-                    row += 1;
-                }
-
-                if (row >= GRID_ROWS) {
-                    continue;
-                }
-
-                this.engine.grid[row][col] = FOODS[type];
-                drops.push({ col, row, tile: FOODS[type] });
-            }
+        for (const drop of queue) {
+            this.engine.grid[drop.row][drop.col] = drop.tile;
+            pending.push(this.gameBoard.dropTileIntoWell(drop.col, drop.row, drop.tile));
         }
 
-        for (const drop of drops) {
-            void this.gameBoard.dropTileIntoWell(drop.col, drop.row, drop.tile);
+        if (pending.length > 0) {
+            await Promise.all(pending);
+        }
+
+        const shouldCheckGameOver = this.mode === 'host' || this.mode === 'guest';
+        if (shouldCheckGameOver && this.engine.hasBlockedSpawn()) {
+            this.engine.toppedOut = true;
+            this.handleGameOver();
         }
     }
 

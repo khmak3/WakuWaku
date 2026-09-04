@@ -124,6 +124,12 @@ export class GameEngine {
         return this.getPairCells(piece).every(({ col, row }) => this.isCellFree(col, row));
     }
 
+    public hasBlockedSpawn(): boolean {
+        const anchorCol = Math.floor(this.cols / 2);
+        const anchorRow = 1;
+        return !this.isCellFree(anchorCol, anchorRow) || !this.isCellFree(anchorCol, anchorRow - 1);
+    }
+
     /** Spawns a new falling pair; returns false (and sets toppedOut) if the spawn cell is blocked. */
     public spawnPiece(tiles: [TileDef, TileDef]): boolean {
         const piece: PairPiece = {
