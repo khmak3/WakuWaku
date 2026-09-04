@@ -130,6 +130,42 @@ export class GameBoard {
         }
     }
 
+    public dropTileIntoWell(col: number, row: number, def: TileDef): Promise<void> {
+        const start = this.cellToPosition(col, -1);
+        const end = this.cellToPosition(col, row);
+        const mesh = createTileMesh(def);
+        mesh.position.copy(start);
+        this.tileLayer.add(mesh);
+
+        const current = this.stackMeshes[row]?.[col];
+        if (current) {
+            this.tileLayer.remove(current);
+            this.stackMeshes[row][col] = null;
+        }
+
+        this.stackMeshes[row][col] = mesh;
+
+        return new Promise((resolve) => {
+            const startTime = performance.now();
+            const duration = 300;
+
+            const step = (now: number) => {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const eased = 1 - (1 - progress) * (1 - progress);
+                mesh.position.lerpVectors(start, end, eased);
+
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                    return;
+                }
+
+                resolve();
+            };
+
+            requestAnimationFrame(step);
+        });
+    }
+
     /** Clears the well so a fresh round does not keep stale board or active-piece meshes. */
     public clearBoard(): void {
         for (let row = 0; row < this.rows; row++) {

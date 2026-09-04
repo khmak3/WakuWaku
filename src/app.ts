@@ -7,8 +7,8 @@ import { FoodFeedPanel, createEmptyFoodCounts, FoodCounts } from './components/F
 import { PlayerControls } from './input/PlayerControls';
 import { GameEngine } from './engine/GameEngine';
 import { EliminationRules } from './engine/EliminationRules';
-import { GRID_COLS, GRID_ROWS } from './config/gameParams';
-import { FoodType } from './types';
+import { FOODS, GRID_COLS, GRID_ROWS } from './config/gameParams';
+import { FoodType, TileDef } from './types';
 import { FeedPayload, GameMode, PeerGameClient } from './network/PeerGameClient';
 
 function requireElement(id: string): HTMLElement {
@@ -291,6 +291,44 @@ class App {
 
         const summary = distribution.join(', ');
         this.playerPanel2.update(`Received: ${summary}`);
+        this.applyIncomingFeedToBoard(payload, distribution);
+    }
+
+    private applyIncomingFeedToBoard(payload: FeedPayload, distribution: number[]): void {
+        const remaining = {
+            bone: payload.bone,
+            bamboo: payload.bamboo,
+            banana: payload.banana,
+            carrot: payload.carrot,
+            cheese: payload.cheese,
+        };
+        const order: FoodType[] = ['bone', 'bamboo', 'banana', 'carrot', 'cheese'];
+
+        const drops: Array<{ col: number; row: number; tile: TileDef }> = [];
+
+        for (let col = 0; col < 6; col++) {
+            const count = distribution[col] ?? 0;
+            for (let i = 0; i < count; i++) {
+                const type = order.find((foodType) => remaining[foodType] > 0) ?? 'bone';
+                remaining[type] -= 1;
+
+                let row = 0;
+                while (row < GRID_ROWS && this.engine.grid[row][col] !== null) {
+                    row += 1;
+                }
+
+                if (row >= GRID_ROWS) {
+                    continue;
+                }
+
+                this.engine.grid[row][col] = FOODS[type];
+                drops.push({ col, row, tile: FOODS[type] });
+            }
+        }
+
+        for (const drop of drops) {
+            void this.gameBoard.dropTileIntoWell(drop.col, drop.row, drop.tile);
+        }
     }
 
     private async shareHostLink(): Promise<void> {
