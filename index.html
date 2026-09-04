@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BakuBaku Puzzle</title>
+    <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-card">
+            <h1>BakuBaku Puzzle</h1>
+            <div class="mode-list">
+                <button type="button" class="mode-btn" data-mode="single">One Player</button>
+                <button type="button" class="mode-btn" data-mode="host">Two Players (Host)</button>
+                <button type="button" class="mode-btn" data-mode="guest">Two Players (Guest)</button>
+            </div>
+            <div id="network-host-panel" class="network-panel" hidden>
+                <p class="network-label">Share this ID with your guest:</p>
+                <div id="host-id-text" class="host-id-text">Waiting for a peer...</div>
+                <button id="share-host-btn" type="button" class="connect-btn">Share Link</button>
+            </div>
+            <div id="network-guest-panel" class="network-panel" hidden>
+                <label for="guest-id-input" class="network-label">Enter Host ID</label>
+                <input id="guest-id-input" type="text" placeholder="Peer ID" maxlength="100" />
+                <button id="connect-guest-btn" type="button" class="connect-btn">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" hidden>
+        <div id="hud">
+            <div id="player-panel-1" class="player-panel"></div>
+            <div id="score-display"></div>
+            <div id="player-panel-2" class="player-panel" hidden></div>
+        </div>
+        <div id="layout">
+            <aside id="next-preview-panel" class="panel"></aside>
+            <div id="well-container"></div>
+            <aside id="right-panel" class="panel" hidden></aside>
+        </div>
+        <div id="touch-controls">
+            <button type="button" class="touch-btn" data-action="rotateLeft" aria-label="Rotate left">&#8634;</button>
+            <button type="button" class="touch-btn" data-action="left" aria-label="Move left">&#9664;</button>
+            <button type="button" class="touch-btn" data-action="down" aria-label="Soft drop">&#9660;</button>
+            <button type="button" class="touch-btn" data-action="right" aria-label="Move right">&#9654;</button>
+            <button type="button" class="touch-btn" data-action="rotateRight" aria-label="Rotate right">&#8635;</button>
+            <button type="button" class="touch-btn" data-action="sendFood" aria-label="Send food">Send</button>
+        </div>
+        <div id="game-over-screen" hidden></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
