@@ -74,8 +74,8 @@ export class GameEngine {
     public getFallIntervalMs(): number {
         const level = this.getSpeedLevel();
         const base = FALL_INTERVAL_MS;
-        const reduction = Math.min(500, level * 50);
-        return Math.max(500, base - reduction);
+        const reduction = Math.min(600, level * 60);
+        return Math.max(400, base - reduction);
     }
 
     private getPairCells(piece: PairPiece): [ActiveCell, ActiveCell] {

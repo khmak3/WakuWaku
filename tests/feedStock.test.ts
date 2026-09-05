@@ -31,10 +31,10 @@ describe('GameEngine speed ramp', () => {
 
         engine.addDroppedTiles(200);
         expect(engine.getSpeedLevel()).toBe(1);
-        expect(engine.getFallIntervalMs()).toBe(950);
+        expect(engine.getFallIntervalMs()).toBe(940);
 
         engine.addDroppedTiles(1800);
         expect(engine.getSpeedLevel()).toBe(10);
-        expect(engine.getFallIntervalMs()).toBe(500);
+        expect(engine.getFallIntervalMs()).toBe(400);
     });
 });

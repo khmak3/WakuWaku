@@ -181,8 +181,13 @@ class App {
         this.foodFeedPanel.update(this.foodCounts);
         this.gameOverScreen.hide();
         this.playerPanel1.update(this.mode === 'host' ? 'Host' : this.mode === 'guest' ? 'Guest' : 'Player 1');
-        this.playerPanel2.update(this.mode === 'host' ? 'Guest' : 'Player 2');
-        this.playerPanel2.container?.removeAttribute('hidden');
+        if (this.mode === 'single') {
+            this.playerPanel2.container?.removeAttribute('hidden');
+            this.playerPanel2.update(`Level ${Math.min(10, Math.max(1, this.engine.getSpeedLevel() + 1))}`);
+        } else {
+            this.playerPanel2.update(this.mode === 'host' ? 'Guest' : 'Player 2');
+            this.playerPanel2.container?.removeAttribute('hidden');
+        }
 
         this.playerControls?.destroy();
         this.playerControls = new PlayerControls({
@@ -426,6 +431,9 @@ class App {
                     this.engine.addDroppedTiles(1);
                     this.gameBoard.setStackTile(cell.col, cell.row, cell.tile);
                 });
+                if (this.mode === 'single' && lockedCells.length > 0) {
+                    this.playerPanel2.update(`Level ${Math.min(10, Math.max(1, this.engine.getSpeedLevel() + 1))}`);
+                }
                 if (!this.engine.hasActivePiece()) {
                     void this.resolveChainsThenSpawn();
                 }
