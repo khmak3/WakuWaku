@@ -53,9 +53,29 @@ export class GameEngine {
     private pairPiece: PairPiece | null = null;
     private soloPiece: SoloPiece | null = null;
     private fallAccumulatorMs = 0;
+    private droppedTiles = 0;
 
     constructor(public cols: number = GRID_COLS, public rows: number = GRID_ROWS) {
         this.grid = Array.from({ length: rows }, () => Array<GridCell>(cols).fill(null));
+    }
+
+    public addDroppedTiles(count: number): void {
+        this.droppedTiles += Math.max(0, count);
+    }
+
+    public getDroppedTiles(): number {
+        return this.droppedTiles;
+    }
+
+    public getSpeedLevel(): number {
+        return Math.min(10, Math.floor(this.droppedTiles / 200));
+    }
+
+    public getFallIntervalMs(): number {
+        const level = this.getSpeedLevel();
+        const base = FALL_INTERVAL_MS;
+        const reduction = Math.min(500, level * 50);
+        return Math.max(500, base - reduction);
     }
 
     private getPairCells(piece: PairPiece): [ActiveCell, ActiveCell] {
@@ -111,7 +131,8 @@ export class GameEngine {
     }
 
     private currentFallInterval(): number {
-        return this.softDropping ? FALL_INTERVAL_MS / 8 : FALL_INTERVAL_MS;
+        const interval = this.getFallIntervalMs();
+        return this.softDropping ? interval / 8 : interval;
     }
 
     private isCellFree(col: number, row: number): boolean {

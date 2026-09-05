@@ -13,6 +13,34 @@ export function createEmptyFoodCounts(): FoodCounts {
     };
 }
 
+export function clampFoodCounts(counts: FoodCounts): FoodCounts {
+    const next = createEmptyFoodCounts();
+    (Object.keys(next) as FoodType[]).forEach((type) => {
+        next[type] = Math.max(0, Math.floor(counts[type] ?? 0));
+    });
+    return next;
+}
+
+export function addFoodCounts(base: FoodCounts, delta: Partial<FoodCounts>): FoodCounts {
+    const next = clampFoodCounts(base);
+    (Object.keys(next) as FoodType[]).forEach((type) => {
+        next[type] += Math.max(0, Math.floor(delta[type] ?? 0));
+    });
+    return clampFoodCounts(next);
+}
+
+export function subtractFoodCounts(base: FoodCounts, delta: Partial<FoodCounts>): FoodCounts {
+    const next = clampFoodCounts(base);
+    (Object.keys(next) as FoodType[]).forEach((type) => {
+        next[type] = Math.max(0, next[type] - Math.max(0, Math.floor(delta[type] ?? 0)));
+    });
+    return clampFoodCounts(next);
+}
+
+export function getFoodTotal(counts: Partial<FoodCounts>): number {
+    return (Object.keys(createEmptyFoodCounts()) as FoodType[]).reduce((sum, type) => sum + Math.max(0, Math.floor(counts[type] ?? 0)), 0);
+}
+
 export class FoodFeedPanel {
     private countNodes: Partial<Record<FoodType, HTMLSpanElement>> = {};
 
@@ -22,6 +50,7 @@ export class FoodFeedPanel {
         this.container.innerHTML = `
             <div class="food-feed-header">
                 <span class="food-feed-title">Feed</span>
+                <span class="food-feed-total">Total: 0</span>
             </div>
             <div class="food-feed-grid"></div>
         `;
@@ -44,6 +73,12 @@ export class FoodFeedPanel {
 
     public update(counts: FoodCounts): void {
         const order: FoodType[] = ['bone', 'bamboo', 'banana', 'carrot', 'cheese'];
+        const total = getFoodTotal(counts);
+        const totalNode = this.container.querySelector('.food-feed-total') as HTMLSpanElement | null;
+        if (totalNode) {
+            totalNode.textContent = `Total: ${total}`;
+        }
+
         order.forEach((type) => {
             const value = counts[type] ?? 0;
             const node = this.countNodes[type];

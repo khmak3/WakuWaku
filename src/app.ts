@@ -3,7 +3,7 @@ import { ScoreDisplay } from './components/ScoreDisplay';
 import { NextBlockPreview } from './components/NextBlockPreview';
 import { GameOverScreen } from './components/GameOverScreen';
 import { PlayerPanel } from './components/PlayerPanel';
-import { FoodFeedPanel, createEmptyFoodCounts, FoodCounts } from './components/FoodFeedPanel';
+import { FoodFeedPanel, addFoodCounts, clampFoodCounts, createEmptyFoodCounts, FoodCounts, getFoodTotal, subtractFoodCounts } from './components/FoodFeedPanel';
 import { PlayerControls } from './input/PlayerControls';
 import { GameEngine } from './engine/GameEngine';
 import { EliminationRules } from './engine/EliminationRules';
@@ -222,7 +222,7 @@ class App {
 
             for (const chain of chains) {
                 for (const [type, count] of Object.entries(chain.foodCounts) as [keyof typeof this.foodCounts, number][]) {
-                    this.foodCounts[type] += count;
+                    this.foodCounts[type] = Math.max(0, this.foodCounts[type] + count);
                 }
                 for (const cell of [...chain.foods, ...chain.animals]) {
                     this.engine.grid[cell.row][cell.col] = null;
@@ -259,9 +259,13 @@ class App {
     }
 
     private sendFood(): void {
+        const sendCounts = clampFoodCounts(this.foodCounts);
+        const total = getFoodTotal(sendCounts);
+        if (total === 0) return;
+
         const payload: FeedPayload = {
-            ...this.foodCounts,
-            columns: this.distributeFoodAcrossColumns(this.foodCounts),
+            ...sendCounts,
+            columns: this.distributeFoodAcrossColumns(sendCounts),
         };
 
         if (this.mode === 'host' || this.mode === 'guest') {
@@ -274,34 +278,43 @@ class App {
             console.log('Mock linked-play feed payload:', payload);
         }
 
-        this.foodCounts = createEmptyFoodCounts();
+        this.foodCounts = subtractFoodCounts(this.foodCounts, sendCounts);
         this.foodFeedPanel.update(this.foodCounts);
     }
 
     private handleIncomingFeed(payload: FeedPayload): void {
-        const distribution = payload.columns.length === 6
-            ? payload.columns
-            : this.distributeFoodAcrossColumns({
-                bone: payload.bone,
-                bamboo: payload.bamboo,
-                banana: payload.banana,
-                carrot: payload.carrot,
-                cheese: payload.cheese,
-            });
-
-        const summary = distribution.join(', ');
-        this.playerPanel2.update(`Received: ${summary}`);
-        void this.applyIncomingFeedToBoard(payload, distribution);
-    }
-
-    private async applyIncomingFeedToBoard(payload: FeedPayload, distribution: number[]): Promise<void> {
-        const remaining = {
+        const normalized = clampFoodCounts({
             bone: payload.bone,
             bamboo: payload.bamboo,
             banana: payload.banana,
             carrot: payload.carrot,
             cheese: payload.cheese,
-        };
+        });
+        const distribution = payload.columns.length === 6
+            ? payload.columns
+            : this.distributeFoodAcrossColumns(normalized);
+
+        const summary = distribution.join(', ');
+        this.playerPanel2.update(`Received: ${summary}`);
+        this.foodCounts = addFoodCounts(this.foodCounts, normalized);
+        this.foodFeedPanel.update(this.foodCounts);
+        void this.applyIncomingFeedToBoard(
+            {
+                ...normalized,
+                columns: distribution,
+            },
+            distribution,
+        );
+    }
+
+    private async applyIncomingFeedToBoard(payload: FeedPayload, distribution: number[]): Promise<void> {
+        const remaining = clampFoodCounts({
+            bone: payload.bone,
+            bamboo: payload.bamboo,
+            banana: payload.banana,
+            carrot: payload.carrot,
+            cheese: payload.cheese,
+        });
 
         const queue = buildFeedDropQueue(this.engine.grid, remaining, distribution);
         const pending: Promise<void>[] = [];
@@ -409,7 +422,10 @@ class App {
 
             if (!this.engine.toppedOut && !this.isResolving) {
                 const lockedCells = this.engine.tick(dtMs);
-                lockedCells.forEach((cell) => this.gameBoard.setStackTile(cell.col, cell.row, cell.tile));
+                lockedCells.forEach((cell) => {
+                    this.engine.addDroppedTiles(1);
+                    this.gameBoard.setStackTile(cell.col, cell.row, cell.tile);
+                });
                 if (!this.engine.hasActivePiece()) {
                     void this.resolveChainsThenSpawn();
                 }
