@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TileDef } from '../types';
 import { GRID_COLS, GRID_ROWS } from '../config/gameParams';
-import { createTileMesh, CELL_SIZE } from '../render/tileFactory';
+import { createTileMesh, CELL_SIZE, setAnimalFaceExpression, updateAnimalIdleAnimation } from '../render/tileFactory';
 
 const ACTIVE_PIECE_LERP = 0.35;
 
@@ -193,6 +193,7 @@ export class GameBoard {
 
         const eater = createTileMesh(actor.tile);
         eater.position.copy(this.cellToPosition(actor.col, actor.row));
+        eater.userData.isEating = true;
         this.tileLayer.add(eater);
         onLeave(actor);
 
@@ -201,6 +202,22 @@ export class GameBoard {
         let from = eater.position.clone();
         let to = this.cellToPosition(targets[0].col, targets[0].row);
         const duration = 240;
+        const tastyDuration = 300;
+
+        const faceTarget = (): void => {
+            const direction = to.clone().sub(from);
+            const visual = eater.userData.animalVisual as { face?: THREE.Group } | undefined;
+            const face = visual?.face;
+            if (!face) return;
+
+            face.rotation.set(0, 0, 0);
+            if (Math.abs(direction.x) > Math.abs(direction.y)) {
+                face.rotation.y = direction.x > 0 ? Math.PI / 4 : -Math.PI / 4;
+                return;
+            }
+            face.rotation.x = direction.y > 0 ? - Math.PI / 4 : Math.PI / 4;
+        };
+        faceTarget();
 
         return new Promise((resolve) => {
             const step = (now: number): void => {
@@ -208,6 +225,10 @@ export class GameBoard {
                 const eased = 1 - (1 - progress) * (1 - progress);
                 eater.position.lerpVectors(from, to, eased);
                 eater.scale.setScalar(1 + Math.sin(progress * Math.PI) * 0.42);
+                setAnimalFaceExpression(eater, 'eating');
+                const mouthPulse = 1 + Math.sin(progress * Math.PI * 5) * 0.35;
+                const visual = eater.userData.animalVisual as { mouth?: THREE.Mesh } | undefined;
+                if (visual?.mouth) visual.mouth.scale.y *= mouthPulse;
 
                 if (progress < 1) {
                     requestAnimationFrame(step);
@@ -217,14 +238,25 @@ export class GameBoard {
                 targetIndex++;
                 if (targetIndex === targets.length) {
                     onLeave(targets[targetIndex - 1]);
-                    this.tileLayer.remove(eater);
-                    resolve();
+                    eater.scale.setScalar(1);
+                    setAnimalFaceExpression(eater, 'tasty');
+                    const tastyStart = now;
+                    const finish = (tastyNow: number): void => {
+                        if (tastyNow - tastyStart < tastyDuration) {
+                            requestAnimationFrame(finish);
+                            return;
+                        }
+                        this.tileLayer.remove(eater);
+                        resolve();
+                    };
+                    requestAnimationFrame(finish);
                     return;
                 }
                 onLeave(targets[targetIndex - 1]);
                 from = to;
                 to = this.cellToPosition(targets[targetIndex].col, targets[targetIndex].row);
                 startTime = now;
+                faceTarget();
                 requestAnimationFrame(step);
             };
             requestAnimationFrame(step);
@@ -292,6 +324,12 @@ export class GameBoard {
     }
 
     public render(): void {
+        const now = performance.now();
+        this.tileLayer.traverse((object) => {
+            if (object instanceof THREE.Group && !object.userData.isEating) {
+                updateAnimalIdleAnimation(object, now);
+            }
+        });
         this.renderer.render(this.scene, this.camera);
     }
 }
